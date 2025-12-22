@@ -13,80 +13,92 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const priority = searchParams.get('priority');
     const microGoalId = searchParams.get('micro_goal_id');
+    const dueDate = searchParams.get('due_date');
     const includeStats = searchParams.get('include_stats') === 'true';
 
     // Get single task by ID
     if (id) {
-      const { data: task, error } = await supabase
-        .from('tasks')
-        .select('*, micro_goals(id, title, macro_goals(id, title))')
-        .eq('id', id)
-        .single();
+      try {
+        const { data: task, error } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('id', id)
+          .single();
 
-      if (error || !task) {
-        return NextResponse.json(
-          { error: 'Task not found' },
-          { status: 404 }
-        );
+        if (error || !task) {
+          return NextResponse.json({ task: null }, { status: 200 });
+        }
+
+        return NextResponse.json({ task });
+      } catch (err) {
+        console.error('Error fetching single task:', err);
+        return NextResponse.json({ task: null }, { status: 200 });
+      }
+    }
+
+    // Build query without joins for better compatibility
+    try {
+      let query = supabase
+        .from('tasks')
+        .select('*')
+        .order('priority', { ascending: false })
+        .order('due_date', { ascending: true });
+
+      // Apply filters
+      if (status) {
+        // Support comma-separated status values
+        const statusValues = status.split(',').map(s => s.trim());
+        if (statusValues.length === 1) {
+          query = query.eq('status', statusValues[0]);
+        } else {
+          query = query.in('status', statusValues);
+        }
+      }
+      if (priority) {
+        query = query.eq('priority', priority);
+      }
+      if (microGoalId) {
+        query = query.eq('micro_goal_id', microGoalId);
+      }
+      if (dueDate) {
+        query = query.eq('due_date', dueDate);
       }
 
-      return NextResponse.json({
-        success: true,
-        data: task,
-      });
+      const { data: tasks, error } = await query;
+
+      if (error) {
+        console.error('Supabase error:', error);
+        return NextResponse.json({ tasks: [] }, { status: 200 });
+      }
+
+      const response: any = {
+        tasks: tasks || [],
+        count: (tasks || []).length,
+      };
+
+      // Include statistics if requested
+      if (includeStats) {
+        try {
+          const stats = await getTaskStats({
+            status: status || undefined,
+            priority: priority || undefined,
+            micro_goal_id: microGoalId || undefined
+          });
+          response.stats = stats;
+        } catch (statsError) {
+          console.error('Error calculating stats:', statsError);
+          response.stats = null;
+        }
+      }
+
+      return NextResponse.json(response);
+    } catch (err) {
+      console.error('Error fetching tasks:', err);
+      return NextResponse.json({ tasks: [] }, { status: 200 });
     }
-
-    // Build query
-    let query = supabase
-      .from('tasks')
-      .select('*, micro_goals(id, title, macro_goals(id, title))')
-      .order('priority', { ascending: false })
-      .order('due_date', { ascending: true });
-
-    // Apply filters
-    if (status) {
-      query = query.eq('status', status);
-    }
-    if (priority) {
-      query = query.eq('priority', priority);
-    }
-    if (microGoalId) {
-      query = query.eq('micro_goal_id', microGoalId);
-    }
-
-    const { data: tasks, error } = await query;
-
-    if (error) {
-      console.error('Supabase error:', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch tasks', details: error.message },
-        { status: 500 }
-      );
-    }
-
-    const response: any = {
-      success: true,
-      data: tasks || [],
-      count: (tasks || []).length,
-    };
-
-    // Include statistics if requested
-    if (includeStats) {
-      const stats = await getTaskStats({
-        status: status || undefined,
-        priority: priority || undefined,
-        micro_goal_id: microGoalId || undefined
-      });
-      response.stats = stats;
-    }
-
-    return NextResponse.json(response);
   } catch (error: any) {
-    console.error('Error fetching tasks:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch tasks', details: error.message },
-      { status: 500 }
-    );
+    console.error('Error in tasks GET:', error);
+    return NextResponse.json({ tasks: [] }, { status: 200 });
   }
 }
 

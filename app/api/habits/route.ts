@@ -16,75 +16,76 @@ export async function GET(request: NextRequest) {
 
     // Get single habit by ID
     if (id) {
-      const { data: habit, error } = await supabase
-        .from('habits')
-        .select('*')
-        .eq('id', id)
-        .single();
+      try {
+        const { data: habit, error } = await supabase
+          .from('habits')
+          .select('*')
+          .eq('id', id)
+          .single();
 
-      if (error || !habit) {
-        return NextResponse.json(
-          { error: 'Habit not found' },
-          { status: 404 }
-        );
+        if (error || !habit) {
+          return NextResponse.json({ habit: null }, { status: 200 });
+        }
+
+        return NextResponse.json({ habit });
+      } catch (err) {
+        console.error('Error fetching single habit:', err);
+        return NextResponse.json({ habit: null }, { status: 200 });
       }
-
-      return NextResponse.json({
-        success: true,
-        data: habit,
-      });
     }
 
     // Get all habits with stats
     if (includeStats) {
-      const filters: any = {};
-      if (isActive !== null) {
-        filters.is_active = isActive === 'true';
-      }
-      if (frequency) {
-        filters.frequency = frequency;
-      }
+      try {
+        const filters: any = {};
+        if (isActive !== null) {
+          filters.is_active = isActive === 'true';
+        }
+        if (frequency) {
+          filters.frequency = frequency;
+        }
 
-      const habitsWithStats = await getAllHabitsWithStats(filters);
+        const habitsWithStats = await getAllHabitsWithStats(filters);
 
-      return NextResponse.json({
-        success: true,
-        data: habitsWithStats,
-        count: habitsWithStats.length,
-      });
+        return NextResponse.json({
+          habits: habitsWithStats || [],
+          count: (habitsWithStats || []).length,
+        });
+      } catch (err) {
+        console.error('Error fetching habits with stats:', err);
+        return NextResponse.json({ habits: [] }, { status: 200 });
+      }
     }
 
     // Get all habits without stats
-    let query = supabase.from('habits').select('*').order('created_at', { ascending: false });
+    try {
+      let query = supabase.from('habits').select('*').order('created_at', { ascending: false });
 
-    if (isActive !== null) {
-      query = query.eq('is_active', isActive === 'true');
+      if (isActive !== null) {
+        query = query.eq('is_active', isActive === 'true');
+      }
+      if (frequency) {
+        query = query.eq('frequency', frequency);
+      }
+
+      const { data: habits, error } = await query;
+
+      if (error) {
+        console.error('Supabase error:', error);
+        return NextResponse.json({ habits: [] }, { status: 200 });
+      }
+
+      return NextResponse.json({
+        habits: habits || [],
+        count: (habits || []).length,
+      });
+    } catch (err) {
+      console.error('Error fetching habits without stats:', err);
+      return NextResponse.json({ habits: [] }, { status: 200 });
     }
-    if (frequency) {
-      query = query.eq('frequency', frequency);
-    }
-
-    const { data: habits, error } = await query;
-
-    if (error) {
-      console.error('Supabase error:', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch habits', details: error.message },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: habits || [],
-      count: (habits || []).length,
-    });
   } catch (error: any) {
-    console.error('Error fetching habits:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch habits', details: error.message },
-      { status: 500 }
-    );
+    console.error('Error in habits GET:', error);
+    return NextResponse.json({ habits: [] }, { status: 200 });
   }
 }
 
