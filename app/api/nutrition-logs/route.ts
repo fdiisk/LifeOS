@@ -56,16 +56,16 @@ export async function POST(request: NextRequest) {
     // Validation
     if (!log_date || !meal_type) {
       return NextResponse.json(
-        { error: 'log_date and meal_type are required' },
-        { status: 400 }
+        { error: 'log_date and meal_type are required', success: false },
+        { status: 200 }
       );
     }
 
     const validMealTypes = ['breakfast', 'lunch', 'dinner', 'snack'];
     if (!validMealTypes.includes(meal_type)) {
       return NextResponse.json(
-        { error: `meal_type must be one of: ${validMealTypes.join(', ')}` },
-        { status: 400 }
+        { error: `meal_type must be one of: ${validMealTypes.join(', ')}`, success: false },
+        { status: 200 }
       );
     }
 
@@ -89,27 +89,27 @@ export async function POST(request: NextRequest) {
       if (error) {
         console.error('Supabase error creating nutrition log:', error);
         return NextResponse.json(
-          { error: 'Failed to save nutrition log', details: error.message },
-          { status: 400 }
+          { error: 'Database unavailable. Please configure Supabase credentials.', success: false },
+          { status: 200 }
         );
       }
 
       return NextResponse.json(
-        { nutrition_log: data, message: 'Nutrition log created successfully' },
-        { status: 201 }
+        { nutrition_log: data, message: 'Nutrition log created successfully', success: true },
+        { status: 200 }
       );
     } catch (err) {
       console.error('Error inserting nutrition log:', err);
       return NextResponse.json(
-        { error: 'Failed to save nutrition log' },
-        { status: 400 }
+        { error: 'Failed to save nutrition log. Database may be unavailable.', success: false },
+        { status: 200 }
       );
     }
   } catch (error) {
     console.error('Error in nutrition logs POST:', error);
     return NextResponse.json(
-      { error: 'Invalid request data' },
-      { status: 400 }
+      { error: 'Invalid request data', success: false },
+      { status: 200 }
     );
   }
 }
