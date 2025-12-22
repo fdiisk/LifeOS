@@ -32,31 +32,45 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse using AI (with automatic caching)
-    const result = await parseMeal(text);
+    try {
+      const result = await parseMeal(text);
+      return NextResponse.json({ result, success: true });
+    } catch (parseError: any) {
+      console.error('Error parsing meal:', parseError);
 
-    return NextResponse.json({
-      success: true,
-      data: result,
-      cached: result.from_cache || false,
-    });
-  } catch (error: any) {
-    console.error('Error parsing meal:', error);
-
-    // Check if it's an OpenRouter API error
-    if (error.message?.includes('OpenRouter')) {
-      return NextResponse.json(
-        {
-          error: 'AI service error',
-          details: error.message,
-          suggestion: 'Please check your OpenRouter API key configuration',
+      // Return safe fallback instead of error
+      return NextResponse.json({
+        result: {
+          total_calories: 0,
+          macros: {
+            protein: 0,
+            carbs: 0,
+            fats: 0,
+          },
+          items: [],
+          from_cache: false,
+          error: 'AI parsing unavailable. Please configure OpenRouter API key.',
         },
-        { status: 503 }
-      );
+        success: false,
+      });
     }
+  } catch (error: any) {
+    console.error('Error in meal parse route:', error);
 
-    return NextResponse.json(
-      { error: 'Failed to parse meal', details: error.message },
-      { status: 500 }
-    );
+    // Return safe fallback
+    return NextResponse.json({
+      result: {
+        total_calories: 0,
+        macros: {
+          protein: 0,
+          carbs: 0,
+          fats: 0,
+        },
+        items: [],
+        from_cache: false,
+        error: 'Request failed. Please try again.',
+      },
+      success: false,
+    });
   }
 }

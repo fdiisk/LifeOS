@@ -32,43 +32,52 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse using AI (with automatic caching)
-    const result = await parseGym(text);
+    try {
+      const result = await parseGym(text);
 
-    // Check if any exercises need clarification
-    const needsClarification = result.exercises?.some(
-      (ex: any) => ex.needs_clarification
-    );
-
-    return NextResponse.json({
-      success: true,
-      data: result,
-      cached: result.from_cache || false,
-      needs_clarification: needsClarification,
-      clarification_questions: result.exercises
-        ?.filter((ex: any) => ex.needs_clarification)
-        .map((ex: any) => ({
-          exercise: ex.name,
-          question: ex.clarification_question,
-        })),
-    });
-  } catch (error: any) {
-    console.error('Error parsing gym workout:', error);
-
-    // Check if it's an OpenRouter API error
-    if (error.message?.includes('OpenRouter')) {
-      return NextResponse.json(
-        {
-          error: 'AI service error',
-          details: error.message,
-          suggestion: 'Please check your OpenRouter API key configuration',
-        },
-        { status: 503 }
+      // Check if any exercises need clarification
+      const needsClarification = result.exercises?.some(
+        (ex: any) => ex.needs_clarification
       );
-    }
 
-    return NextResponse.json(
-      { error: 'Failed to parse gym workout', details: error.message },
-      { status: 500 }
-    );
+      return NextResponse.json({
+        result,
+        success: true,
+        cached: result.from_cache || false,
+        needs_clarification: needsClarification,
+        clarification_questions: result.exercises
+          ?.filter((ex: any) => ex.needs_clarification)
+          .map((ex: any) => ({
+            exercise: ex.name,
+            question: ex.clarification_question,
+          })),
+      });
+    } catch (parseError: any) {
+      console.error('Error parsing gym workout:', parseError);
+
+      // Return safe fallback instead of error
+      return NextResponse.json({
+        result: {
+          exercises: [],
+          workout_type: 'General',
+          from_cache: false,
+          error: 'AI parsing unavailable. Please configure OpenRouter API key.',
+        },
+        success: false,
+      });
+    }
+  } catch (error: any) {
+    console.error('Error in gym parse route:', error);
+
+    // Return safe fallback
+    return NextResponse.json({
+      result: {
+        exercises: [],
+        workout_type: 'General',
+        from_cache: false,
+        error: 'Request failed. Please try again.',
+      },
+      success: false,
+    });
   }
 }

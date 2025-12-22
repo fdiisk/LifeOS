@@ -11,67 +11,77 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const id = searchParams.get('id');
     const groupByArea = searchParams.get('group_by_area') === 'true';
+    const status = searchParams.get('status');
+    const includeProgress = searchParams.get('include_progress') === 'true';
 
     // Get single macro goal by ID
     if (id) {
-      const goalWithProgress = await getMacroGoalWithProgress(id);
+      try {
+        const goalWithProgress = await getMacroGoalWithProgress(id);
 
-      if (!goalWithProgress) {
-        return NextResponse.json(
-          { error: 'Macro goal not found' },
-          { status: 404 }
-        );
+        if (!goalWithProgress) {
+          return NextResponse.json({ macro_goal: null }, { status: 200 });
+        }
+
+        return NextResponse.json({ macro_goal: goalWithProgress });
+      } catch (err) {
+        console.error('Error fetching single goal:', err);
+        return NextResponse.json({ macro_goal: null }, { status: 200 });
       }
-
-      return NextResponse.json({
-        success: true,
-        data: goalWithProgress,
-      });
     }
 
     // Get all macro goals grouped by life area
     if (groupByArea) {
-      const grouped = await getGoalsByLifeArea();
-
-      return NextResponse.json({
-        success: true,
-        data: grouped,
-      });
+      try {
+        const grouped = await getGoalsByLifeArea();
+        return NextResponse.json({ grouped: grouped || {} });
+      } catch (err) {
+        console.error('Error grouping by area:', err);
+        return NextResponse.json({ grouped: {} }, { status: 200 });
+      }
     }
 
-    // Get all macro goals with progress
-    const { data: macroGoals, error } = await supabase
-      .from('macro_goals')
-      .select('*')
-      .order('created_at', { ascending: false });
+    // Get all macro goals
+    try {
+      let query = supabase.from('macro_goals').select('*');
 
-    if (error) {
-      console.error('Supabase error:', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch macro goals', details: error.message },
-        { status: 500 }
-      );
+      // Filter by status if provided
+      if (status) {
+        query = query.eq('status', status);
+      }
+
+      const { data: macroGoals, error } = await query.order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Supabase error:', error);
+        return NextResponse.json({ macro_goals: [] }, { status: 200 });
+      }
+
+      // Add progress if requested
+      if (includeProgress) {
+        const goalsWithProgress = await Promise.all(
+          (macroGoals || []).map(async (goal: any) => {
+            try {
+              const goalWithProgress = await getMacroGoalWithProgress(goal.id);
+              return goalWithProgress || { ...goal, progress: 0 };
+            } catch (err) {
+              console.error(`Error calculating progress for goal ${goal.id}:`, err);
+              return { ...goal, progress: 0 };
+            }
+          })
+        );
+
+        return NextResponse.json({ macro_goals: goalsWithProgress });
+      }
+
+      return NextResponse.json({ macro_goals: macroGoals || [] });
+    } catch (err) {
+      console.error('Error fetching macro goals:', err);
+      return NextResponse.json({ macro_goals: [] }, { status: 200 });
     }
-
-    // Add progress to each goal
-    const goalsWithProgress = await Promise.all(
-      (macroGoals || []).map(async (goal: any) => {
-        const goalWithProgress = await getMacroGoalWithProgress(goal.id);
-        return goalWithProgress;
-      })
-    );
-
-    return NextResponse.json({
-      success: true,
-      data: goalsWithProgress,
-      count: goalsWithProgress.length,
-    });
   } catch (error: any) {
-    console.error('Error fetching macro goals:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch macro goals', details: error.message },
-      { status: 500 }
-    );
+    console.error('Error in macro goals GET:', error);
+    return NextResponse.json({ macro_goals: [] }, { status: 200 });
   }
 }
 
