@@ -12,6 +12,12 @@ export default function Header() {
           </Link>
           <nav className="flex items-center gap-6">
             <Link
+              href="/input"
+              className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
+            >
+              Input
+            </Link>
+            <Link
               href="/dashboard"
               className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
             >
