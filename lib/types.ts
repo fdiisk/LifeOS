@@ -141,3 +141,14 @@ export interface FocusSession {
   created_at: string;
   updated_at: string;
 }
+
+export interface DailyRating {
+  id: string;
+  date: string;
+  focus_rating: number;
+  effort_rating: number;
+  mood_rating: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
