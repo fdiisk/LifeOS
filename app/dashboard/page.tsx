@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import GoalProgressChart from '@/components/dashboard/GoalProgressChart';
 import LifeAreasChart from '@/components/dashboard/LifeAreasChart';
+import WeightTrendChart from '@/components/dashboard/WeightTrendChart';
 import TimeScaleSelector from '@/components/dashboard/TimeScaleSelector';
 import FocusHeatmap from '@/components/dashboard/FocusHeatmap';
 import RatingsComparisonChart from '@/components/dashboard/RatingsComparisonChart';
@@ -112,6 +113,11 @@ export default function DashboardPage() {
           {/* Life Areas Chart - Takes full width on mobile, half on desktop */}
           <div className="lg:col-span-2">
             <LifeAreasChart />
+          </div>
+
+          {/* Weight Trend Chart - Full width */}
+          <div className="lg:col-span-2">
+            <WeightTrendChart />
           </div>
 
           {/* Ratings Comparison Chart */}
