@@ -29,6 +29,12 @@ export default function Header() {
             >
               Dashboard
             </Link>
+            <Link
+              href="/settings"
+              className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
+            >
+              Settings
+            </Link>
           </nav>
         </div>
       </div>
