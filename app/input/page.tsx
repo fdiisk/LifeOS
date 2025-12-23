@@ -8,6 +8,7 @@ import TaskCompletion from '@/components/input/TaskCompletion';
 import HabitCheckin from '@/components/input/HabitCheckin';
 import MealEntry from '@/components/input/MealEntry';
 import GymEntry from '@/components/input/GymEntry';
+import CardioEntry from '@/components/input/CardioEntry';
 import RatingsInput from '@/components/input/RatingsInput';
 import TimeBlockEntry from '@/components/input/TimeBlockEntry';
 
@@ -19,6 +20,7 @@ type Tab =
   | 'timeblock'
   | 'meal'
   | 'gym'
+  | 'cardio'
   | 'ratings';
 
 interface TabConfig {
@@ -34,6 +36,7 @@ const tabs: TabConfig[] = [
   { id: 'timeblock', label: 'Time Block', icon: '⏰' },
   { id: 'meal', label: 'Meal', icon: '🍽️' },
   { id: 'gym', label: 'Gym', icon: '💪' },
+  { id: 'cardio', label: 'Cardio', icon: '🏃' },
   { id: 'ratings', label: 'Ratings', icon: '⭐' },
   { id: 'evening', label: 'Evening', icon: '🌙' },
 ];
@@ -95,6 +98,7 @@ function InputPageContent() {
           {activeTab === 'timeblock' && <TimeBlockEntry />}
           {activeTab === 'meal' && <MealEntry />}
           {activeTab === 'gym' && <GymEntry />}
+          {activeTab === 'cardio' && <CardioEntry />}
           {activeTab === 'ratings' && <RatingsInput />}
         </div>
 

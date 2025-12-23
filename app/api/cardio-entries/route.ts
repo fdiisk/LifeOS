@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
 /**
- * GET /api/gym-logs
- * Get gym logs, optionally filtered by date
+ * GET /api/cardio-entries
+ * Get cardio entries, optionally filtered by date
  */
 export async function GET(request: NextRequest) {
   try {
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('start_date');
     const endDate = searchParams.get('end_date');
 
-    let query = supabase.from('gym_logs').select('*');
+    let query = supabase.from('cardio_entries').select('*');
 
     if (logDate) {
       query = query.eq('log_date', logDate);
@@ -23,29 +23,33 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query.order('log_date', { ascending: false });
 
     if (error) {
-      console.error('Supabase error fetching gym logs:', error);
-      return NextResponse.json({ gym_logs: [] }, { status: 200 });
+      console.error('Supabase error fetching cardio entries:', error);
+      return NextResponse.json({ cardio_entries: [] }, { status: 200 });
     }
 
-    return NextResponse.json({ gym_logs: data || [] });
+    return NextResponse.json({ cardio_entries: data || [] });
   } catch (error) {
-    console.error('Error fetching gym logs:', error);
-    return NextResponse.json({ gym_logs: [] }, { status: 200 });
+    console.error('Error fetching cardio entries:', error);
+    return NextResponse.json({ cardio_entries: [] }, { status: 200 });
   }
 }
 
 /**
- * POST /api/gym-logs
- * Create a new gym log entry
+ * POST /api/cardio-entries
+ * Create a new cardio entry
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const {
       log_date,
-      workout_type,
-      exercises,
+      entry_type,
       duration_minutes,
+      distance_km,
+      steps,
+      calories_burned,
+      avg_heart_rate,
+      raw_text,
       notes,
       ai_parsed_data,
     } = body;
@@ -58,14 +62,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!entry_type) {
+      return NextResponse.json(
+        { error: 'entry_type is required' },
+        { status: 400 }
+      );
+    }
+
     try {
       const { data, error } = await supabase
-        .from('gym_logs')
+        .from('cardio_entries')
         .insert({
           log_date,
-          workout_type: workout_type || 'General',
-          exercises: exercises || {},
+          entry_type,
           duration_minutes: duration_minutes || null,
+          distance_km: distance_km || null,
+          steps: steps || null,
+          calories_burned: calories_burned || null,
+          avg_heart_rate: avg_heart_rate || null,
+          raw_text: raw_text || null,
           notes: notes || null,
           ai_parsed_data: ai_parsed_data || null,
         })
@@ -73,26 +88,26 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (error) {
-        console.error('Supabase error creating gym log:', error);
+        console.error('Supabase error creating cardio entry:', error);
         return NextResponse.json(
-          { error: 'Failed to save gym log', details: error.message },
+          { error: 'Failed to save cardio entry', details: error.message },
           { status: 400 }
         );
       }
 
       return NextResponse.json(
-        { gym_log: data, message: 'Gym log created successfully' },
+        { cardio_entry: data, message: 'Cardio entry created successfully' },
         { status: 201 }
       );
     } catch (err) {
-      console.error('Error inserting gym log:', err);
+      console.error('Error inserting cardio entry:', err);
       return NextResponse.json(
-        { error: 'Failed to save gym log' },
+        { error: 'Failed to save cardio entry' },
         { status: 400 }
       );
     }
   } catch (error) {
-    console.error('Error in gym logs POST:', error);
+    console.error('Error in cardio entries POST:', error);
     return NextResponse.json(
       { error: 'Invalid request data' },
       { status: 400 }
@@ -101,8 +116,8 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * PATCH /api/gym-logs?id=<uuid>
- * Update an existing gym log
+ * PATCH /api/cardio-entries?id=<uuid>
+ * Update an existing cardio entry
  */
 export async function PATCH(request: NextRequest) {
   try {
@@ -119,34 +134,40 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const {
       log_date,
-      workout_type,
-      exercises,
+      entry_type,
       duration_minutes,
-      notes,
+      distance_km,
+      steps,
+      calories_burned,
+      avg_heart_rate,
       raw_text,
+      notes,
       ai_parsed_data,
     } = body;
 
     const updateData: any = {};
     if (log_date !== undefined) updateData.log_date = log_date;
-    if (workout_type !== undefined) updateData.workout_type = workout_type;
-    if (exercises !== undefined) updateData.exercises = exercises;
+    if (entry_type !== undefined) updateData.entry_type = entry_type;
     if (duration_minutes !== undefined) updateData.duration_minutes = duration_minutes;
-    if (notes !== undefined) updateData.notes = notes;
+    if (distance_km !== undefined) updateData.distance_km = distance_km;
+    if (steps !== undefined) updateData.steps = steps;
+    if (calories_burned !== undefined) updateData.calories_burned = calories_burned;
+    if (avg_heart_rate !== undefined) updateData.avg_heart_rate = avg_heart_rate;
     if (raw_text !== undefined) updateData.raw_text = raw_text;
+    if (notes !== undefined) updateData.notes = notes;
     if (ai_parsed_data !== undefined) updateData.ai_parsed_data = ai_parsed_data;
 
     const { data, error } = await supabase
-      .from('gym_logs')
+      .from('cardio_entries')
       .update(updateData)
       .eq('id', id)
       .select()
       .single();
 
     if (error) {
-      console.error('Supabase error updating gym log:', error);
+      console.error('Supabase error updating cardio entry:', error);
       return NextResponse.json(
-        { error: 'Failed to update gym log', success: false },
+        { error: 'Failed to update cardio entry', success: false },
         { status: 200 }
       );
     }
@@ -154,20 +175,20 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data,
-      message: 'Gym log updated successfully',
+      message: 'Cardio entry updated successfully',
     });
   } catch (error: any) {
-    console.error('Error updating gym log:', error);
+    console.error('Error updating cardio entry:', error);
     return NextResponse.json(
-      { error: 'Failed to update gym log', success: false },
+      { error: 'Failed to update cardio entry', success: false },
       { status: 200 }
     );
   }
 }
 
 /**
- * DELETE /api/gym-logs?id=<uuid>
- * Delete a gym log
+ * DELETE /api/cardio-entries?id=<uuid>
+ * Delete a cardio entry
  */
 export async function DELETE(request: NextRequest) {
   try {
@@ -183,28 +204,28 @@ export async function DELETE(request: NextRequest) {
 
     try {
       const { error } = await supabase
-        .from('gym_logs')
+        .from('cardio_entries')
         .delete()
         .eq('id', id);
 
       if (error) {
-        console.error('Supabase error deleting gym log:', error);
+        console.error('Supabase error deleting cardio entry:', error);
         return NextResponse.json(
-          { error: 'Failed to delete gym log' },
+          { error: 'Failed to delete cardio entry' },
           { status: 400 }
         );
       }
 
-      return NextResponse.json({ message: 'Gym log deleted successfully' });
+      return NextResponse.json({ message: 'Cardio entry deleted successfully' });
     } catch (err) {
-      console.error('Error deleting gym log:', err);
+      console.error('Error deleting cardio entry:', err);
       return NextResponse.json(
-        { error: 'Failed to delete gym log' },
+        { error: 'Failed to delete cardio entry' },
         { status: 400 }
       );
     }
   } catch (error) {
-    console.error('Error in gym logs DELETE:', error);
+    console.error('Error in cardio entries DELETE:', error);
     return NextResponse.json(
       { error: 'Invalid request' },
       { status: 400 }
