@@ -14,11 +14,13 @@ export interface GoalProgressData {
 
 export interface LifeAreaData {
   date: string;
-  health: number;
-  professional: number;
+  financial: number;
   personal: number;
   relationships: number;
-  financial: number;
+  recreation: number;
+  career: number;
+  hobbies: number;
+  health: number;
 }
 
 export interface RatingsComparisonData {
@@ -149,11 +151,13 @@ export async function fetchLifeAreasProgress(
     // Group tasks by life area and calculate completion percentage
     const lifeAreaData: LifeAreaData[] = dates.map((date) => ({
       date,
-      health: Math.floor(Math.random() * 100), // Placeholder - calculate from actual data
-      professional: Math.floor(Math.random() * 100),
+      financial: Math.floor(Math.random() * 100), // Placeholder - calculate from actual data
       personal: Math.floor(Math.random() * 100),
       relationships: Math.floor(Math.random() * 100),
-      financial: Math.floor(Math.random() * 100),
+      recreation: Math.floor(Math.random() * 100),
+      career: Math.floor(Math.random() * 100),
+      hobbies: Math.floor(Math.random() * 100),
+      health: Math.floor(Math.random() * 100),
     }));
 
     return lifeAreaData;

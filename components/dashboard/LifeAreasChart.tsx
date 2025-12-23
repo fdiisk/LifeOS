@@ -3,14 +3,11 @@
 import { useEffect, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { format, subMonths } from 'date-fns';
+import { LIFE_AREAS, LIFE_AREA_COLORS, LIFE_AREA_LABELS, normalizeLifeArea, type LifeArea } from '@/lib/life-areas';
 
 interface LifeAreaDataPoint {
   date: string;
-  Health: number;
-  Professional: number;
-  Personal: number;
-  Relationships: number;
-  Financial: number;
+  [key: string]: number | string;
 }
 
 export default function LifeAreasChart() {
@@ -34,30 +31,30 @@ export default function LifeAreasChart() {
       const dataPoints: LifeAreaDataPoint[] = [];
       const current = new Date(sixMonthsAgo);
 
-      // Life areas from ai_parsed_data or default categorization
-      const lifeAreas = {
-        Health: [] as number[],
-        Professional: [] as number[],
-        Personal: [] as number[],
-        Relationships: [] as number[],
-        Financial: [] as number[],
+      // Initialize life areas with empty arrays
+      const lifeAreas: Record<LifeArea, number[]> = {
+        financial: [],
+        personal: [],
+        relationships: [],
+        recreation: [],
+        career: [],
+        hobbies: [],
+        health: [],
       };
 
       // Calculate progress for each life area from goals
       (goalsData.macro_goals || []).forEach((goal: any) => {
-        const category = goal.ai_parsed_data?.life_area || 'Personal';
+        const rawLifeArea = goal.ai_parsed_data?.life_area;
+        const category = normalizeLifeArea(rawLifeArea);
         const progress = goal.progress || 0;
 
-        if (category in lifeAreas) {
-          lifeAreas[category as keyof typeof lifeAreas].push(progress);
-        } else {
-          lifeAreas.Personal.push(progress);
-        }
+        lifeAreas[category].push(progress);
       });
 
       // Calculate averages
-      const averages: Record<string, number> = {};
-      Object.entries(lifeAreas).forEach(([area, values]) => {
+      const averages: Record<LifeArea, number> = {} as Record<LifeArea, number>;
+      LIFE_AREAS.forEach((area) => {
+        const values = lifeAreas[area];
         averages[area] = values.length > 0
           ? Math.round(values.reduce((sum, v) => sum + v, 0) / values.length)
           : 0;
@@ -71,14 +68,13 @@ export default function LifeAreasChart() {
         const totalWeeks = 26;
         const growthFactor = weeksPassed / totalWeeks;
 
-        dataPoints.push({
-          date: format(current, 'MMM dd'),
-          Health: Math.min(100, Math.round(averages.Health * growthFactor + Math.random() * 10)),
-          Professional: Math.min(100, Math.round(averages.Professional * growthFactor + Math.random() * 10)),
-          Personal: Math.min(100, Math.round(averages.Personal * growthFactor + Math.random() * 10)),
-          Relationships: Math.min(100, Math.round(averages.Relationships * growthFactor + Math.random() * 10)),
-          Financial: Math.min(100, Math.round(averages.Financial * growthFactor + Math.random() * 10)),
+        const dataPoint: LifeAreaDataPoint = { date: format(current, 'MMM dd') };
+
+        LIFE_AREAS.forEach((area) => {
+          dataPoint[area] = Math.min(100, Math.round(averages[area] * growthFactor + Math.random() * 10));
         });
+
+        dataPoints.push(dataPoint);
 
         current.setDate(current.getDate() + 7);
       }
@@ -121,46 +117,18 @@ export default function LifeAreasChart() {
           />
           <Tooltip />
           <Legend wrapperStyle={{ fontSize: '12px' }} />
-          <Area
-            type="monotone"
-            dataKey="Health"
-            stackId="1"
-            stroke="#10b981"
-            fill="#10b981"
-            fillOpacity={0.6}
-          />
-          <Area
-            type="monotone"
-            dataKey="Professional"
-            stackId="1"
-            stroke="#3b82f6"
-            fill="#3b82f6"
-            fillOpacity={0.6}
-          />
-          <Area
-            type="monotone"
-            dataKey="Personal"
-            stackId="1"
-            stroke="#f59e0b"
-            fill="#f59e0b"
-            fillOpacity={0.6}
-          />
-          <Area
-            type="monotone"
-            dataKey="Relationships"
-            stackId="1"
-            stroke="#ec4899"
-            fill="#ec4899"
-            fillOpacity={0.6}
-          />
-          <Area
-            type="monotone"
-            dataKey="Financial"
-            stackId="1"
-            stroke="#8b5cf6"
-            fill="#8b5cf6"
-            fillOpacity={0.6}
-          />
+          {LIFE_AREAS.map((area) => (
+            <Area
+              key={area}
+              type="monotone"
+              dataKey={area}
+              name={LIFE_AREA_LABELS[area]}
+              stackId="1"
+              stroke={LIFE_AREA_COLORS[area].stroke}
+              fill={LIFE_AREA_COLORS[area].fill}
+              fillOpacity={0.6}
+            />
+          ))}
         </AreaChart>
       </ResponsiveContainer>
     </div>
