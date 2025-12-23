@@ -9,40 +9,59 @@ import TimeScaleSelector from '@/components/dashboard/TimeScaleSelector';
 import FocusHeatmap from '@/components/dashboard/FocusHeatmap';
 import RatingsComparisonChart from '@/components/dashboard/RatingsComparisonChart';
 import MorningFlow from '@/components/input/MorningFlow';
+import EveningFlow from '@/components/input/EveningFlow';
 import { TimeScale } from '@/lib/dashboard-utils';
 
 export default function DashboardPage() {
   const router = useRouter();
   const [timeScale, setTimeScale] = useState<TimeScale>('quarter');
   const [showMorningFlow, setShowMorningFlow] = useState(false);
-  const [checkingMorningFlow, setCheckingMorningFlow] = useState(true);
+  const [showEveningFlow, setShowEveningFlow] = useState(false);
+  const [checkingFlows, setCheckingFlows] = useState(true);
 
   useEffect(() => {
-    checkMorningFlowStatus();
+    checkFlowStatus();
   }, []);
 
-  async function checkMorningFlowStatus() {
+  async function checkFlowStatus() {
     try {
       const today = format(new Date(), 'yyyy-MM-dd');
       const res = await fetch(`/api/daily-logs?date=${today}`);
       const data = await res.json();
 
+      // Check if day is locked
+      if (data.data?.day_locked) {
+        // Don't show any flows if day is locked
+        setCheckingFlows(false);
+        return;
+      }
+
       // Check if morning reflection has been completed
-      // If any of the morning fields are present, consider it completed
       const hasCompletedMorning =
         data.data?.what_went_well ||
         data.data?.day_rating ||
         data.data?.gratitude ||
         data.data?.sleep_hours;
 
-      if (!hasCompletedMorning) {
+      // Check if evening reflection has been completed
+      const hasCompletedEvening =
+        data.data?.evening_focus_rating ||
+        data.data?.evening_journal;
+
+      // Determine which flow to show based on time of day
+      const currentHour = new Date().getHours();
+      const isEvening = currentHour >= 18; // 6 PM or later
+
+      if (!hasCompletedMorning && !isEvening) {
         setShowMorningFlow(true);
+      } else if (!hasCompletedEvening && isEvening) {
+        setShowEveningFlow(true);
       }
     } catch (error) {
-      console.error('Error checking morning flow status:', error);
+      console.error('Error checking flow status:', error);
       // Don't show modal if there's an error
     } finally {
-      setCheckingMorningFlow(false);
+      setCheckingFlows(false);
     }
   }
 
@@ -54,6 +73,16 @@ export default function DashboardPage() {
 
   function handleMorningFlowSkip() {
     setShowMorningFlow(false);
+  }
+
+  function handleEveningFlowComplete() {
+    setShowEveningFlow(false);
+    // Reload to show locked state
+    window.location.reload();
+  }
+
+  function handleEveningFlowSkip() {
+    setShowEveningFlow(false);
   }
 
   return (
@@ -137,6 +166,11 @@ export default function DashboardPage() {
       {/* Morning Flow Modal */}
       {showMorningFlow && (
         <MorningFlow onComplete={handleMorningFlowComplete} onSkip={handleMorningFlowSkip} />
+      )}
+
+      {/* Evening Flow Modal */}
+      {showEveningFlow && (
+        <EveningFlow onComplete={handleEveningFlowComplete} onSkip={handleEveningFlowSkip} />
       )}
     </div>
   );
