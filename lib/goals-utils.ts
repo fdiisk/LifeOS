@@ -29,33 +29,88 @@ export async function calculateMicroGoalProgress(microGoalId: string): Promise<n
 }
 
 /**
- * Calculate macro goal progress based on its micro goals (0-100)
+ * Calculate macro goal progress based on completed medium goals (0-100)
+ * Uses cached progress_percentage from database, calculated by triggers based on completed micro_goals
  */
 export async function calculateMacroGoalProgress(macroGoalId: string): Promise<number> {
-  const { data: microGoals, error } = await supabase
-    .from('micro_goals')
-    .select('id, status')
-    .eq('macro_goal_id', macroGoalId)
-    .neq('status', 'abandoned');
+  const { data: macroGoal, error } = await supabase
+    .from('macro_goals')
+    .select('progress_percentage, total_medium_goals, completed_medium_goals')
+    .eq('id', macroGoalId)
+    .single();
 
-  if (error || !microGoals || microGoals.length === 0) {
+  if (error || !macroGoal) {
     return 0;
   }
 
-  // Calculate progress for each micro goal
-  const progressValues = await Promise.all(
-    microGoals.map(async (mg: any) => {
-      if (mg.status === 'completed') {
-        return 100;
-      }
-      return await calculateMicroGoalProgress(mg.id);
+  // Return cached progress if available
+  if (macroGoal.progress_percentage !== null && macroGoal.progress_percentage !== undefined) {
+    return macroGoal.progress_percentage;
+  }
+
+  // Fallback: calculate from counts
+  if (macroGoal.total_medium_goals === 0) {
+    return 0;
+  }
+
+  return Math.round((macroGoal.completed_medium_goals / macroGoal.total_medium_goals) * 100);
+}
+
+/**
+ * Mark micro goal as completed
+ * This updates is_completed flag and sets completed_at timestamp
+ */
+export async function completeMicroGoal(microGoalId: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('micro_goals')
+    .update({
+      is_completed: true,
+      status: 'completed',
+      completed_at: new Date().toISOString(),
     })
-  );
+    .eq('id', microGoalId);
 
-  const totalProgress = progressValues.reduce((sum, progress) => sum + progress, 0);
-  const avgProgress = totalProgress / microGoals.length;
+  return !error;
+}
 
-  return Math.round(avgProgress);
+/**
+ * Mark micro goal as incomplete
+ * This resets is_completed flag and clears completed_at timestamp
+ */
+export async function incompleteMicroGoal(microGoalId: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('micro_goals')
+    .update({
+      is_completed: false,
+      status: 'active',
+      completed_at: null,
+    })
+    .eq('id', microGoalId);
+
+  return !error;
+}
+
+/**
+ * Get aggregated metrics for a micro goal
+ * Returns time, focus, and success aggregations from child tasks
+ */
+export async function getMicroGoalAggregations(microGoalId: string) {
+  const { data: microGoal, error } = await supabase
+    .from('micro_goals')
+    .select('total_time_minutes, avg_focus_rating, avg_success_rating, is_completed')
+    .eq('id', microGoalId)
+    .single();
+
+  if (error || !microGoal) {
+    return {
+      total_time_minutes: 0,
+      avg_focus_rating: null,
+      avg_success_rating: null,
+      is_completed: false,
+    };
+  }
+
+  return microGoal;
 }
 
 /**
