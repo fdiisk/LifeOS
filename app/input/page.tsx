@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import MorningPlanning from '@/components/input/MorningPlanning';
 import EveningReflection from '@/components/input/EveningReflection';
 import TaskCompletion from '@/components/input/TaskCompletion';
@@ -38,7 +39,16 @@ const tabs: TabConfig[] = [
 ];
 
 export default function InputPage() {
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>('tasks');
+
+  useEffect(() => {
+    // Check for tab query parameter
+    const tabParam = searchParams.get('tab') as Tab;
+    if (tabParam && tabs.some((t) => t.id === tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   return (
     <div className="min-h-screen bg-gray-50">
