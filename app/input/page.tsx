@@ -8,12 +8,14 @@ import HabitCheckin from '@/components/input/HabitCheckin';
 import MealEntry from '@/components/input/MealEntry';
 import GymEntry from '@/components/input/GymEntry';
 import RatingsInput from '@/components/input/RatingsInput';
+import TimeBlockEntry from '@/components/input/TimeBlockEntry';
 
 type Tab =
   | 'morning'
   | 'evening'
   | 'tasks'
   | 'habits'
+  | 'timeblock'
   | 'meal'
   | 'gym'
   | 'ratings';
@@ -28,6 +30,7 @@ const tabs: TabConfig[] = [
   { id: 'morning', label: 'Morning', icon: '🌅' },
   { id: 'tasks', label: 'Tasks', icon: '✓' },
   { id: 'habits', label: 'Habits', icon: '🎯' },
+  { id: 'timeblock', label: 'Time Block', icon: '⏰' },
   { id: 'meal', label: 'Meal', icon: '🍽️' },
   { id: 'gym', label: 'Gym', icon: '💪' },
   { id: 'ratings', label: 'Ratings', icon: '⭐' },
@@ -79,6 +82,7 @@ export default function InputPage() {
           {activeTab === 'evening' && <EveningReflection />}
           {activeTab === 'tasks' && <TaskCompletion />}
           {activeTab === 'habits' && <HabitCheckin />}
+          {activeTab === 'timeblock' && <TimeBlockEntry />}
           {activeTab === 'meal' && <MealEntry />}
           {activeTab === 'gym' && <GymEntry />}
           {activeTab === 'ratings' && <RatingsInput />}
