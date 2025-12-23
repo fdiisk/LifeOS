@@ -1,15 +1,60 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { format } from 'date-fns';
 import GoalProgressChart from '@/components/dashboard/GoalProgressChart';
 import LifeAreasChart from '@/components/dashboard/LifeAreasChart';
 import TimeScaleSelector from '@/components/dashboard/TimeScaleSelector';
 import FocusHeatmap from '@/components/dashboard/FocusHeatmap';
 import RatingsComparisonChart from '@/components/dashboard/RatingsComparisonChart';
+import MorningFlow from '@/components/input/MorningFlow';
 import { TimeScale } from '@/lib/dashboard-utils';
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [timeScale, setTimeScale] = useState<TimeScale>('quarter');
+  const [showMorningFlow, setShowMorningFlow] = useState(false);
+  const [checkingMorningFlow, setCheckingMorningFlow] = useState(true);
+
+  useEffect(() => {
+    checkMorningFlowStatus();
+  }, []);
+
+  async function checkMorningFlowStatus() {
+    try {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const res = await fetch(`/api/daily-logs?date=${today}`);
+      const data = await res.json();
+
+      // Check if morning reflection has been completed
+      // If any of the morning fields are present, consider it completed
+      const hasCompletedMorning =
+        data.data?.what_went_well ||
+        data.data?.day_rating ||
+        data.data?.gratitude ||
+        data.data?.sleep_hours;
+
+      if (!hasCompletedMorning) {
+        setShowMorningFlow(true);
+      }
+    } catch (error) {
+      console.error('Error checking morning flow status:', error);
+      // Don't show modal if there's an error
+    } finally {
+      setCheckingMorningFlow(false);
+    }
+  }
+
+  function handleMorningFlowComplete() {
+    setShowMorningFlow(false);
+    // Navigate to time blocking tab in input page
+    router.push('/input?tab=timeblock');
+  }
+
+  function handleMorningFlowSkip() {
+    setShowMorningFlow(false);
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -88,6 +133,11 @@ export default function DashboardPage() {
           </p>
         </div>
       </div>
+
+      {/* Morning Flow Modal */}
+      {showMorningFlow && (
+        <MorningFlow onComplete={handleMorningFlowComplete} onSkip={handleMorningFlowSkip} />
+      )}
     </div>
   );
 }
