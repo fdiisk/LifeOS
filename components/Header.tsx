@@ -18,6 +18,12 @@ export default function Header() {
               Input
             </Link>
             <Link
+              href="/logs"
+              className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
+            >
+              Logs
+            </Link>
+            <Link
               href="/dashboard"
               className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
             >
