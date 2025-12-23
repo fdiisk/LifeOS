@@ -182,6 +182,7 @@ export async function PATCH(request: NextRequest) {
       description,
       status,
       target_date,
+      is_completed,
       ai_parsed_data,
     } = body;
 
@@ -219,6 +220,20 @@ export async function PATCH(request: NextRequest) {
     if (status !== undefined) updateData.status = status;
     if (target_date !== undefined) updateData.target_date = target_date;
     if (ai_parsed_data !== undefined) updateData.ai_parsed_data = ai_parsed_data;
+
+    // Handle is_completed flag and set completed_at
+    if (is_completed !== undefined) {
+      updateData.is_completed = is_completed;
+      if (is_completed === true) {
+        updateData.completed_at = new Date().toISOString();
+        // Also set status to completed if not already
+        if (status !== 'completed') {
+          updateData.status = 'completed';
+        }
+      } else {
+        updateData.completed_at = null;
+      }
+    }
 
     const { data, error } = await supabase
       .from('micro_goals')

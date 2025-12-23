@@ -117,6 +117,9 @@ export async function POST(request: NextRequest) {
       status = 'pending',
       priority = 'medium',
       due_date,
+      time_spent_minutes,
+      focus_rating,
+      success_rating,
       ai_parsed_data,
     } = body;
 
@@ -162,6 +165,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate ratings if provided
+    if (focus_rating !== undefined && focus_rating !== null) {
+      if (focus_rating < 1 || focus_rating > 10) {
+        return NextResponse.json(
+          { error: 'focus_rating must be between 1 and 10' },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (success_rating !== undefined && success_rating !== null) {
+      if (success_rating < 1 || success_rating > 10) {
+        return NextResponse.json(
+          { error: 'success_rating must be between 1 and 10' },
+          { status: 400 }
+        );
+      }
+    }
+
     const { data, error } = await supabase
       .from('tasks')
       .insert({
@@ -172,6 +194,9 @@ export async function POST(request: NextRequest) {
         priority,
         due_date: due_date || null,
         completed_at: status === 'completed' ? new Date().toISOString() : null,
+        time_spent_minutes: time_spent_minutes || 0,
+        focus_rating: focus_rating || null,
+        success_rating: success_rating || null,
         ai_parsed_data: ai_parsed_data || null,
       })
       .select('*, micro_goals(id, title, macro_goals(id, title))')
@@ -222,6 +247,9 @@ export async function PATCH(request: NextRequest) {
       status,
       priority,
       due_date,
+      time_spent_minutes,
+      focus_rating,
+      success_rating,
       ai_parsed_data,
     } = body;
 
@@ -242,6 +270,25 @@ export async function PATCH(request: NextRequest) {
       if (!validPriorities.includes(priority)) {
         return NextResponse.json(
           { error: `priority must be one of: ${validPriorities.join(', ')}` },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Validate ratings if provided
+    if (focus_rating !== undefined && focus_rating !== null) {
+      if (focus_rating < 1 || focus_rating > 10) {
+        return NextResponse.json(
+          { error: 'focus_rating must be between 1 and 10' },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (success_rating !== undefined && success_rating !== null) {
+      if (success_rating < 1 || success_rating > 10) {
+        return NextResponse.json(
+          { error: 'success_rating must be between 1 and 10' },
           { status: 400 }
         );
       }
@@ -278,6 +325,9 @@ export async function PATCH(request: NextRequest) {
     }
     if (priority !== undefined) updateData.priority = priority;
     if (due_date !== undefined) updateData.due_date = due_date;
+    if (time_spent_minutes !== undefined) updateData.time_spent_minutes = time_spent_minutes;
+    if (focus_rating !== undefined) updateData.focus_rating = focus_rating;
+    if (success_rating !== undefined) updateData.success_rating = success_rating;
     if (ai_parsed_data !== undefined) updateData.ai_parsed_data = ai_parsed_data;
 
     const { data, error } = await supabase
