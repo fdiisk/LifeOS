@@ -3,13 +3,26 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 
+interface NutritionEntry {
+  name: string;
+  type: 'food' | 'water' | 'caffeine';
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  serving_size?: string;
+  brand?: string;
+}
+
 export default function MealEntry() {
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [mealType, setMealType] = useState<'breakfast' | 'lunch' | 'dinner' | 'snack'>('lunch');
   const [mealText, setMealText] = useState('');
   const [loading, setLoading] = useState(false);
   const [parsing, setParsing] = useState(false);
-  const [parsedResult, setParsedResult] = useState<any>(null);
+  const [parsedEntries, setParsedEntries] = useState<NutritionEntry[]>([]);
+  const [rawInput, setRawInput] = useState('');
+  const [aiParsedData, setAiParsedData] = useState<any>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   async function handleParse() {
@@ -17,7 +30,7 @@ export default function MealEntry() {
 
     setParsing(true);
     setMessage(null);
-    setParsedResult(null);
+    setParsedEntries([]);
 
     try {
       const res = await fetch('/api/ai/parse/meal', {
@@ -29,12 +42,26 @@ export default function MealEntry() {
       if (!res.ok) throw new Error('Failed to parse meal');
 
       const data = await res.json();
-      setParsedResult(data.result);
+      const result = data.result;
 
-      if (data.result.from_cache) {
-        setMessage({ type: 'success', text: '✓ Parsed (from cache)' });
+      if (result.error) {
+        setMessage({ type: 'error', text: result.error });
+        return;
+      }
+
+      if (!result.entries || result.entries.length === 0) {
+        setMessage({ type: 'error', text: 'No food items found. Please try describing your meal differently.' });
+        return;
+      }
+
+      setParsedEntries(result.entries);
+      setRawInput(result.raw_input || mealText);
+      setAiParsedData(result);
+
+      if (result.from_cache) {
+        setMessage({ type: 'success', text: `✓ Found ${result.entries.length} items (from cache)` });
       } else {
-        setMessage({ type: 'success', text: '✓ Parsed with AI' });
+        setMessage({ type: 'success', text: `✓ Parsed ${result.entries.length} items with AI` });
       }
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to parse meal. Please try again.' });
@@ -44,7 +71,7 @@ export default function MealEntry() {
   }
 
   async function handleSave() {
-    if (!parsedResult) {
+    if (!parsedEntries || parsedEntries.length === 0) {
       setMessage({ type: 'error', text: 'Please parse the meal first.' });
       return;
     }
@@ -53,32 +80,58 @@ export default function MealEntry() {
     setMessage(null);
 
     try {
-      const res = await fetch('/api/nutrition-logs', {
+      const res = await fetch('/api/nutrition-entries', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           log_date: date,
           meal_type: mealType,
-          food_items: parsedResult.items,
-          total_calories: parsedResult.total_calories,
-          protein_grams: parsedResult.macros.protein,
-          carbs_grams: parsedResult.macros.carbs,
-          fats_grams: parsedResult.macros.fats,
-          ai_parsed_data: parsedResult,
+          entries: parsedEntries,
+          raw_text: rawInput,
+          ai_parsed_data: aiParsedData,
         }),
       });
 
-      if (!res.ok) throw new Error('Failed to save meal');
+      const data = await res.json();
 
-      setMessage({ type: 'success', text: 'Meal saved successfully!' });
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to save meal');
+      }
+
+      setMessage({ type: 'success', text: `${parsedEntries.length} ${parsedEntries.length === 1 ? 'entry' : 'entries'} saved successfully!` });
       setMealText('');
-      setParsedResult(null);
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to save meal. Please try again.' });
+      setParsedEntries([]);
+      setRawInput('');
+      setAiParsedData(null);
+    } catch (error: any) {
+      setMessage({ type: 'error', text: error.message || 'Failed to save meal. Please try again.' });
     } finally {
       setLoading(false);
     }
   }
+
+  function updateEntry(index: number, field: keyof NutritionEntry, value: any) {
+    setParsedEntries((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  }
+
+  function removeEntry(index: number) {
+    setParsedEntries((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  // Calculate totals from current entries
+  const totals = parsedEntries.reduce(
+    (acc, entry) => ({
+      calories: acc.calories + (entry.calories || 0),
+      protein_g: acc.protein_g + (entry.protein_g || 0),
+      carbs_g: acc.carbs_g + (entry.carbs_g || 0),
+      fat_g: acc.fat_g + (entry.fat_g || 0),
+    }),
+    { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 }
+  );
 
   return (
     <div className="bg-white p-6 rounded-lg shadow">
@@ -143,37 +196,118 @@ export default function MealEntry() {
           {parsing ? 'Parsing with AI...' : 'Parse Meal'}
         </button>
 
-        {parsedResult && (
+        {parsedEntries.length > 0 && (
           <div className="p-4 bg-green-50 border border-green-200 rounded-md">
-            <h3 className="font-semibold text-green-900 mb-2">Parsed Results</h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-700">Total Calories:</span>
-                <span className="font-semibold">{parsedResult.total_calories} kcal</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-700">Protein:</span>
-                <span className="font-semibold">{parsedResult.macros.protein}g</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-700">Carbs:</span>
-                <span className="font-semibold">{parsedResult.macros.carbs}g</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-700">Fats:</span>
-                <span className="font-semibold">{parsedResult.macros.fats}g</span>
+            <h3 className="font-semibold text-green-900 mb-3">Parsed Items - Review & Edit</h3>
+
+            <div className="space-y-3">
+              {parsedEntries.map((entry, index) => (
+                <div key={index} className="bg-white p-3 rounded border border-green-300">
+                  <div className="flex justify-between items-start mb-2">
+                    <input
+                      type="text"
+                      value={entry.name}
+                      onChange={(e) => updateEntry(index, 'name', e.target.value)}
+                      className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm font-medium"
+                      placeholder="Food name"
+                    />
+                    <button
+                      onClick={() => removeEntry(index)}
+                      className="ml-2 text-red-600 hover:text-red-800 text-sm font-medium"
+                    >
+                      Remove
+                    </button>
+                  </div>
+
+                  {entry.brand && (
+                    <div className="mb-2">
+                      <input
+                        type="text"
+                        value={entry.brand}
+                        onChange={(e) => updateEntry(index, 'brand', e.target.value)}
+                        className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                        placeholder="Brand (optional)"
+                      />
+                    </div>
+                  )}
+
+                  {entry.serving_size && (
+                    <div className="mb-2 text-xs text-gray-600">
+                      Serving: {entry.serving_size}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-4 gap-2">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Calories</label>
+                      <input
+                        type="number"
+                        value={entry.calories}
+                        onChange={(e) => updateEntry(index, 'calories', parseFloat(e.target.value) || 0)}
+                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                        min="0"
+                        step="1"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Protein (g)</label>
+                      <input
+                        type="number"
+                        value={entry.protein_g}
+                        onChange={(e) => updateEntry(index, 'protein_g', parseFloat(e.target.value) || 0)}
+                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                        min="0"
+                        step="0.1"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Carbs (g)</label>
+                      <input
+                        type="number"
+                        value={entry.carbs_g}
+                        onChange={(e) => updateEntry(index, 'carbs_g', parseFloat(e.target.value) || 0)}
+                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                        min="0"
+                        step="0.1"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Fat (g)</label>
+                      <input
+                        type="number"
+                        value={entry.fat_g}
+                        onChange={(e) => updateEntry(index, 'fat_g', parseFloat(e.target.value) || 0)}
+                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                        min="0"
+                        step="0.1"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-green-300">
+              <h4 className="font-semibold text-green-900 mb-2">Totals</h4>
+              <div className="grid grid-cols-4 gap-3 text-sm">
+                <div>
+                  <span className="text-gray-700 block">Calories:</span>
+                  <span className="font-semibold">{totals.calories.toFixed(0)} kcal</span>
+                </div>
+                <div>
+                  <span className="text-gray-700 block">Protein:</span>
+                  <span className="font-semibold">{totals.protein_g.toFixed(1)}g</span>
+                </div>
+                <div>
+                  <span className="text-gray-700 block">Carbs:</span>
+                  <span className="font-semibold">{totals.carbs_g.toFixed(1)}g</span>
+                </div>
+                <div>
+                  <span className="text-gray-700 block">Fat:</span>
+                  <span className="font-semibold">{totals.fat_g.toFixed(1)}g</span>
+                </div>
               </div>
             </div>
-            {parsedResult.items && parsedResult.items.length > 0 && (
-              <div className="mt-3">
-                <p className="text-xs text-gray-600 font-medium mb-1">Items:</p>
-                <ul className="text-xs text-gray-700 list-disc list-inside">
-                  {parsedResult.items.map((item: any, idx: number) => (
-                    <li key={idx}>{item.name || item}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </div>
         )}
 
@@ -189,14 +323,14 @@ export default function MealEntry() {
           </div>
         )}
 
-        {parsedResult && (
+        {parsedEntries.length > 0 && (
           <button
             type="button"
             onClick={handleSave}
             disabled={loading}
             className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium"
           >
-            {loading ? 'Saving...' : 'Save Meal'}
+            {loading ? 'Saving...' : `Save ${parsedEntries.length} ${parsedEntries.length === 1 ? 'Entry' : 'Entries'}`}
           </button>
         )}
       </div>
