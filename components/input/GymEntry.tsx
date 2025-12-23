@@ -62,6 +62,7 @@ export default function GymEntry() {
           workout_type: workoutType || parsedResult.workout_type || 'General',
           exercises: parsedResult.exercises,
           duration_minutes: duration ? parseInt(duration) : null,
+          raw_text: workoutText,
           ai_parsed_data: parsedResult,
         }),
       });
