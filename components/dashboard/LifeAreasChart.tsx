@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { format, subMonths } from 'date-fns';
 import { LIFE_AREAS, LIFE_AREA_COLORS, LIFE_AREA_LABELS, normalizeLifeArea, type LifeArea } from '@/lib/life-areas';
 
@@ -71,7 +71,8 @@ export default function LifeAreasChart() {
         const dataPoint: LifeAreaDataPoint = { date: format(current, 'MMM dd') };
 
         LIFE_AREAS.forEach((area) => {
-          dataPoint[area] = Math.min(100, Math.round(averages[area] * growthFactor + Math.random() * 10));
+          // Show relative progress (not capped at 100%)
+          dataPoint[area] = Math.round(averages[area] * growthFactor + Math.random() * 5);
         });
 
         dataPoints.push(dataPoint);
@@ -89,10 +90,46 @@ export default function LifeAreasChart() {
     }
   }
 
+  // Custom tooltip to show relative balance
+  function CustomTooltip({ active, payload, label }: any) {
+    if (!active || !payload) return null;
+
+    const total = payload.reduce((sum: number, entry: any) => sum + (entry.value || 0), 0);
+
+    return (
+      <div className="bg-white border border-gray-300 rounded-lg shadow-lg p-3">
+        <p className="font-semibold text-gray-900 mb-2">{label}</p>
+        {payload.map((entry: any) => {
+          const percentage = total > 0 ? Math.round((entry.value / total) * 100) : 0;
+          return (
+            <div key={entry.dataKey} className="flex items-center justify-between gap-3 text-sm">
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-3 h-3 rounded"
+                  style={{ backgroundColor: entry.color }}
+                />
+                <span>{entry.name}:</span>
+              </div>
+              <span className="font-semibold">
+                {entry.value} ({percentage}%)
+              </span>
+            </div>
+          );
+        })}
+        <div className="border-t border-gray-200 mt-2 pt-2">
+          <div className="flex items-center justify-between text-sm font-semibold">
+            <span>Total:</span>
+            <span>{total}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="bg-white p-6 rounded-lg shadow">
-        <h3 className="text-lg font-semibold mb-4">Life Areas Progress (Normalized)</h3>
+        <h3 className="text-lg font-semibold mb-4">Life Areas Balance</h3>
         <div className="h-64 flex items-center justify-center text-gray-500">
           Loading...
         </div>
@@ -102,34 +139,44 @@ export default function LifeAreasChart() {
 
   return (
     <div className="bg-white p-4 md:p-6 rounded-lg shadow">
-      <h3 className="text-lg font-semibold mb-4">Life Areas Progress (Normalized)</h3>
-      <ResponsiveContainer width="100%" height={300}>
-        <AreaChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" />
+      <div className="mb-4">
+        <h3 className="text-lg font-semibold">Life Areas Balance</h3>
+        <p className="text-sm text-gray-600">
+          Relative progress across all life areas (shows balance, not absolute values)
+        </p>
+      </div>
+      <ResponsiveContainer width="100%" height={350}>
+        <LineChart data={chartData}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
           <XAxis
             dataKey="date"
             tick={{ fontSize: 12 }}
             interval="preserveStartEnd"
+            stroke="#6b7280"
           />
           <YAxis
-            label={{ value: 'Progress (%)', angle: -90, position: 'insideLeft' }}
-            domain={[0, 100]}
+            label={{ value: 'Relative Progress', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
+            stroke="#6b7280"
+            tick={{ fontSize: 12 }}
           />
-          <Tooltip />
-          <Legend wrapperStyle={{ fontSize: '12px' }} />
+          <Tooltip content={<CustomTooltip />} />
+          <Legend
+            wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
+            iconType="line"
+          />
           {LIFE_AREAS.map((area) => (
-            <Area
+            <Line
               key={area}
               type="monotone"
               dataKey={area}
               name={LIFE_AREA_LABELS[area]}
-              stackId="1"
               stroke={LIFE_AREA_COLORS[area].stroke}
-              fill={LIFE_AREA_COLORS[area].fill}
-              fillOpacity={0.6}
+              strokeWidth={2}
+              dot={{ r: 3 }}
+              activeDot={{ r: 5 }}
             />
           ))}
-        </AreaChart>
+        </LineChart>
       </ResponsiveContainer>
     </div>
   );
