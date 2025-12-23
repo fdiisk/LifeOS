@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import MorningPlanning from '@/components/input/MorningPlanning';
 import EveningReflection from '@/components/input/EveningReflection';
@@ -38,7 +38,7 @@ const tabs: TabConfig[] = [
   { id: 'evening', label: 'Evening', icon: '🌙' },
 ];
 
-export default function InputPage() {
+function InputPageContent() {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>('tasks');
 
@@ -127,5 +127,13 @@ export default function InputPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function InputPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>}>
+      <InputPageContent />
+    </Suspense>
   );
 }
